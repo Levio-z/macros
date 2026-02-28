@@ -7,6 +7,8 @@ pub fn derive_enum_from(input: TokenStream) -> TokenStream {
     println!("{:#?}", input);
     // get the enum name
     let enum_name = input.ident;
+    let generics = &input.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     // get enum variants
     let variants = match input.data {
         syn::Data::Enum(data_enum) => data_enum.variants,
@@ -20,7 +22,7 @@ pub fn derive_enum_from(input: TokenStream) -> TokenStream {
                 if let Some(field) = unnamed.unnamed.first() {
                     let inner_type = &field.ty;
                     Some(quote! {
-                        impl From<#inner_type> for #enum_name {
+                        impl #impl_generics From<#inner_type> for #enum_name #ty_generics #where_clause {
                             fn from(v: #inner_type) -> Self {
                                 Self::#variant_name(v)
                             }

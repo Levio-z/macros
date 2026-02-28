@@ -1,24 +1,24 @@
 use template::EnumFrom;
 
 #[derive(EnumFrom, Debug)]
-enum Direction {
-    Up(DirectionUp),
+enum Direction<T> {
+    Up(DirectionUp<T>),
     Down,
     Left(u8),
     Right,
 }
 #[derive(Debug)]
-struct DirectionUp {
-    speed: u32,
+struct DirectionUp<T> {
+    speed: T,
 }
 fn main() {
     let dir = Direction::Up(DirectionUp { speed: 100 });
     let x = DirectionUp { speed: 100 };
     println!("{:?}", dir);
-    let y: Direction = x.into();
+    let y: Direction<u32> = x.into();
     println!("{:?}", y);
-    let z: Direction = Direction::Down.into();
+    let z: Direction<u32> = Direction::Down.into();
     println!("{:?}", z);
-    let w: Direction = 100.into();
+    let w: Direction<u32> = 100.into();
     println!("{:?}", w);
 }
