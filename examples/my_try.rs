@@ -1,5 +1,14 @@
 use anyhow::Result;
-use template::my_try;
+
+macro_rules! my_try {
+    ($e:expr) => {{
+        let e: Result<_, anyhow::Error> = $e;
+        match e {
+            Ok(v) => v,
+            Err(e) => panic!("{:?}", e),
+        }
+    }};
+}
 
 fn main() -> Result<()> {
     // let result = f1("hello")?;
