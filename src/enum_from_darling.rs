@@ -1,44 +1,60 @@
-use darling::FromDeriveInput;
+use darling::{
+    FromDeriveInput, FromField, FromVariant,
+    ast::{Data, Fields, Style},
+};
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::DeriveInput;
 
-#[derive(FromDeriveInput, Debug)]
-#[darling(attributes(enum_from))]
-struct EnumFromOpts {
-    #[darling(default)]
-    skip: Option<String>,
+#[derive(Debug, FromDeriveInput)]
+struct EnumFromDarling {
+    ident: syn::Ident,
+    generics: syn::Generics,
+    data: Data<EnumVariants, ()>,
 }
 
-pub fn process_enum_from_darling(input: &syn::DeriveInput) -> TokenStream {
-    let enum_name = &input.ident;
-    let generics = &input.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let variants = match &input.data {
-        syn::Data::Enum(data_enum) => &data_enum.variants,
-        _ => panic!("EnumFrom derive only works on enums"),
+#[derive(Debug, FromVariant)]
+struct EnumVariants {
+    ident: syn::Ident,
+    fields: Fields<EnumVariantFields>,
+}
+
+#[derive(Debug, FromField)]
+struct EnumVariantFields {
+    ty: syn::Type,
+}
+
+pub(crate) fn process_enum_from_darling(input: DeriveInput) -> TokenStream {
+    let EnumFromDarling {
+        ident,
+        generics,
+        data: Data::Enum(data),
+    } = EnumFromDarling::from_derive_input(&input).expect("can not parse input")
+    else {
+        panic!("EnumFromDarling only works on enums");
     };
-    let _opts = EnumFromOpts::from_derive_input(input).ok();
-    let from_impls = variants.iter().filter_map(|variant| {
-        let variant_name = &variant.ident;
-        let fields = &variant.fields;
-        match fields {
-            syn::Fields::Unnamed(unnamed) => {
-                if let Some(field) = unnamed.unnamed.first() {
-                    let inner_type = &field.ty;
-                    Some(quote! {
-                        impl #impl_generics From<#inner_type> for #enum_name #ty_generics #where_clause {
-                            fn from(v: #inner_type) -> Self {
-                                Self::#variant_name(v)
-                            }
+
+    let from_impls = data.iter().map(|variant| {
+        let var = &variant.ident;
+        let style = &variant.fields.style;
+        match style {
+            Style::Tuple if variant.fields.len() == 1 => {
+                let field = variant.fields.iter().next().expect("should have 1 field");
+                let ty = &field.ty;
+                quote! {
+                    impl #generics From<#ty> for #ident #generics {
+                        fn from(v: #ty) -> Self {
+                            #ident::#var(v)
                         }
-                    })
-                } else {
-                    None
+                    }
                 }
             }
-            syn::Fields::Unit => Some(quote! {}),
-            _ => None,
+            _ => quote! {},
         }
     });
-    quote! { #(#from_impls)* }.into()
+
+    quote! {
+        #(#from_impls)*
+    }
+    .into()
 }
